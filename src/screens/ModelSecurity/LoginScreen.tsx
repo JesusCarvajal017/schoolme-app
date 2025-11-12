@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../navigation/AppNavigator'; // ✅ CORRECTO
+import type { RootStackParamList } from '../../navigation/AppNavigator'; 
 
 import CustomInput from '../../components/Genericos/CustomInput';
 import CustomButton from '../../components/Genericos/CustomButton';
@@ -89,7 +89,10 @@ const LoginScreen = () => {
 
           {errorMessage !== '' && <Text style={styles.errorText}>{errorMessage}</Text>}
 
-          <TouchableOpacity style={styles.forgotContainer}>
+          <TouchableOpacity
+            style={styles.forgotContainer}
+            // onPress={() => navigation.navigate('ForgotPassword')}
+          >
             <Text style={styles.forgotText}>¿Olvidó su contraseña?</Text>
           </TouchableOpacity>
 
@@ -105,7 +108,7 @@ export default LoginScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E50',
+    backgroundColor: '#000928',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -134,7 +137,7 @@ const styles = StyleSheet.create({
     width: width * 0.5,
     height: width * 0.5,
     resizeMode: 'contain',
-    opacity: 0.3,
+    // opacity: 0.3,
   },
   illustration: {
     width: 180,
