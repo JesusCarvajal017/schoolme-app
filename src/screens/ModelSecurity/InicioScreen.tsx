@@ -80,8 +80,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 20,
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 120,
     resizeMode: 'contain',
   },
   illustration: {
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E1E50',
+    color: '#3582B9',
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   button: {
-    backgroundColor: '#1E1E50',
+    backgroundColor: '#171174',
     paddingVertical: 14,
     paddingHorizontal: 60,
     borderRadius: 10,
