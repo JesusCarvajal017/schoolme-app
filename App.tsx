@@ -13,7 +13,7 @@ export default function App() {
         <NavigationContainer ref={navigationRef}>
           <StatusBar
             animated
-            backgroundColor="#4d35a4ff"
+            backgroundColor="#000928"
             barStyle="light-content"
             showHideTransition="fade"
           />

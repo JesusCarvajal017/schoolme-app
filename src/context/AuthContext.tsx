@@ -142,8 +142,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       await fetchUserAndPerson(email);
     } catch (err: any) {
-      setError(err.message || "Error al iniciar sesión");
-      throw err;
+      // Personalizar mensaje de error para credenciales incorrectas
+      if (err.message?.includes("Token no recibido") || err.message?.includes("401") || err.message?.includes("Unauthorized")) {
+        setError("Correo electrónico o contraseña incorrectos");
+        throw new Error("Correo electrónico o contraseña incorrectos");
+      } else {
+        setError(err.message || "Error al iniciar sesión");
+        throw err;
+      }
     } finally {
       setLoading(false);
     }
