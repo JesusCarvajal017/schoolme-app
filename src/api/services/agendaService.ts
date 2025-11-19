@@ -57,26 +57,17 @@ export async function getStudentCurrentAgenda(studentId: number): Promise<{
   }
 }
 
-// Función simplificada para confirmar lectura
+// Función para confirmar lectura (implementación real con autenticación)
 export async function confirmAgendaReading(
-  agendaDayStudentId: number, 
+  agendaDayStudentId: number,
   parentComment?: string
 ): Promise<void> {
   try {
-    // Por ahora simulamos una confirmación exitosa
-    console.log('Confirmando lectura:', { agendaDayStudentId, parentComment });
-    
-    // Simular delay de API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // En el futuro, aquí irá la llamada real a la API:
-    // return await http.command(
-    //   `${baseUrl}/AgendaDayStudent/${agendaDayStudentId}/confirm`, 
-    //   { parentComment, isConfirmed: true, confirmedAt: new Date().toISOString() }, 
-    //   "PUT"
-    // );
-    
-    return Promise.resolve();
+    return await http.command(
+      `${baseUrl}/AgendaDayStudent/${agendaDayStudentId}/confirm`,
+      { parentComment, isConfirmed: true, confirmedAt: new Date().toISOString() },
+      "PUT"
+    );
   } catch (error) {
     console.error('Error confirming agenda reading:', error);
     throw new Error('No se pudo confirmar la lectura de la agenda');
