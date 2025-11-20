@@ -23,7 +23,7 @@ const ChangePhotoModal = ({ visible, onClose }: Props) => {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       quality: 0.7,
       allowsEditing: true,
     });
@@ -38,7 +38,10 @@ const ChangePhotoModal = ({ visible, onClose }: Props) => {
       setLoading(true);
       const ok = await uploadUserPhoto(user.id, imageUri);
       if (ok) {
-        const newPhoto = imageUri; // o `${user.photo}?t=${Date.now()}` si backend devuelve nombre
+        // Forzar recarga de la imagen agregando timestamp
+        const newPhoto = user.photo.startsWith('http')
+          ? `${user.photo}?t=${Date.now()}`
+          : `http://${environment.uri}:5250/usuarios/${user.photo}?t=${Date.now()}`;
         await updateUserPhoto(newPhoto);
         Alert.alert('Éxito', 'Foto de perfil actualizada.');
       } else {
@@ -55,8 +58,11 @@ const ChangePhotoModal = ({ visible, onClose }: Props) => {
 
   const getCurrentPhoto = () => {
     if (imageUri) return { uri: imageUri };
-    if (user?.photo?.startsWith('http')) return { uri: user.photo };
-    if (user?.photo) return { uri: `http://${environment.uri}:5250/usuarios/${user.photo}` };
+    if (user?.photo?.startsWith('http')) {
+      // Agregar timestamp para evitar cache
+      return { uri: `${user.photo}?t=${Date.now()}` };
+    }
+    if (user?.photo) return { uri: `http://${environment.uri}:5250/usuarios/${user.photo}?t=${Date.now()}` };
     return require('../assets/default.jpg');
   };
 

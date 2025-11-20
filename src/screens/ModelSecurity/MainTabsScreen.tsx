@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Navbar from '../../components/Narvar/Navbar';
 import MainMenuScreen from './MainMenuScreen';
-import PerfilScreen from '../PerfilScreen';
-import NotificacionesScreen from '../NotificacionesScreen';
-import AjustesScreen from '../AjustesScreen';
+import PerfilScreen from '../Parameters/PerfilScreen';
+import NotificacionesScreen from '../Business/NotificacionesScreen';
+import AjustesScreen from '../Parameters/AjustesScreen';
 
 const MainTabsScreen = () => {
   const [activeTab, setActiveTab] = useState(0);
