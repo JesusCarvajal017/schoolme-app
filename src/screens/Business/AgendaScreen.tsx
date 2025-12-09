@@ -163,7 +163,13 @@ const AgendaScreen = () => {
   if (!agendaContext) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text>No hay agenda disponible</Text>
+        <View style={styles.noDataContainer}>
+          <Text style={styles.noDataEmoji}>📅</Text>
+          <Text style={styles.noDataTitle}>No hay agenda pendiente</Text>
+          <Text style={styles.noDataText}>
+            No tienes agendas pendientes para confirmar en este momento.
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }

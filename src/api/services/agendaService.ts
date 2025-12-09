@@ -136,11 +136,7 @@ export async function confirmAgenda(
 ) {
   const payload = {
     id: agendaDayStudentId,
-    status: 1,
-    agendaDayId,
-    studentId,
-    agendaDayStudentStatus: 1,
-    completedAt: new Date().toISOString()
+    status: 3
   };
 
   try {
@@ -154,9 +150,7 @@ export async function confirmAgenda(
   }
 }
 
-/**
- * 10. CONTEXTO COMPLETO (ACTUALIZADO CON FECHA REAL)
- */
+
 export async function getStudentAgendaContext(
   studentId: number,
   attendantPersonId: number
@@ -177,6 +171,15 @@ export async function getStudentAgendaContext(
     if (!studentRecord) throw new Error('Estudiante no registrado en agenda');
 
     const confirmations = await getStudentConfirmations(studentId);
+    const hasPendingConfirmation = confirmations.some(
+      c => c.agendaDayId === agendaDay.agendaDayId &&
+           c.status === 1
+    );
+
+    if (!hasPendingConfirmation) {
+      throw new Error('No hay agenda pendiente para confirmar');
+    }
+
     const isCompleted = confirmations.some(
       c => c.agendaDayId === agendaDay.agendaDayId &&
            c.agendaDayStudentStatus === 1
