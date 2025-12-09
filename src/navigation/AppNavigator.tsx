@@ -12,6 +12,7 @@ import VerificationCodeScreen from '../screens/ModelSecurity/VerificationCodeScr
 
 // Otras pantallas
 import AgendaScreen from '../screens/Business/AgendaScreen';
+import MisHijosScreen from '../screens/Business/MisHijosScreen';
 import ReportesScreen from '../screens/Business/ReportesScreen';
 
 
@@ -25,7 +26,8 @@ export type RootStackParamList = {
   Inicio: undefined;
   Login: undefined;
   Main: undefined;
-  Agenda: undefined;
+  MisHijos: undefined;
+  Agenda: { studentId: number; studentName: string } | undefined;
   Reportes: undefined;
   Padres: undefined;
   EditProfile: undefined; // Nueva ruta agregada
@@ -42,6 +44,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Inicio" component={InicioScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Main" component={MainTabsScreen} />
+      <Stack.Screen name="MisHijos" component={MisHijosScreen} />
       <Stack.Screen name="Agenda" component={AgendaScreen} />
       <Stack.Screen name="Reportes" component={ReportesScreen} />
       {/* Nueva pantalla de editar perfil */}

@@ -184,9 +184,9 @@ const EditProfileScreen = () => {
             <View style={styles.readOnlyItem}>
               <Text style={styles.readOnlyLabel}>GÉNERO</Text>
               <Text style={styles.readOnlyValue}>
-                {personData.gender === 1
+                {personData.gender === 2
                   ? 'Femenino'
-                  : personData.gender === 2
+                  : personData.gender === 1
                   ? 'Masculino'
                   : 'Otro'}
               </Text>

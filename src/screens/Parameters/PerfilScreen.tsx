@@ -83,9 +83,9 @@ const PerfilScreen = () => {
 
   const getGenderText = () => {
     switch (personData?.gender) {
-      case 1:
-        return 'Femenino';
       case 2:
+        return 'Femenino';
+      case 1:
         return 'Masculino';
       case 3:
         return 'Otro';

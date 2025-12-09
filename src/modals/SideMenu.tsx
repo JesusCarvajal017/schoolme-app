@@ -18,6 +18,9 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { AuthContext } from '../context/AuthContext';
 import { environment } from '../api/constant/Enviroment';
 import { getRolesByUserId } from '../api/services/rolUserService';
+import { getAttendantRelations } from '../api/services/agendaService';
+import { AttendantRelation } from '../api/types/Agenda';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,6 +45,7 @@ const SideMenu = ({ visible, onClose, navigation }: Props) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const { logout, user, person } = useContext(AuthContext);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [studentRelations, setStudentRelations] = useState<AttendantRelation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,9 +86,22 @@ const SideMenu = ({ visible, onClose, navigation }: Props) => {
     setLoading(true);
     const roles = await getRolesByUserId(user.id);
     setUserRoles(roles);
+
+    // If user is a parent, also fetch their student relations
+    const isParent = roles.some(role => role.rolId === 4);
+    if (isParent && person?.id) {
+      try {
+        const relations = await getAttendantRelations(person.id);
+        setStudentRelations(relations);
+      } catch (error) {
+        console.error('Error al cargar estudiantes:', error);
+        setStudentRelations([]);
+      }
+    }
   } catch (error) {
     console.error('Error al cargar roles:', error);
     setUserRoles([]);
+    setStudentRelations([]);
   } finally {
     setLoading(false);
   }
@@ -92,7 +109,7 @@ const SideMenu = ({ visible, onClose, navigation }: Props) => {
 
 
   const handleNavigate = (screen: keyof RootStackParamList) => {
-    navigation.navigate(screen);
+    (navigation as any).navigate(screen);
     onClose();
   };
 
@@ -163,11 +180,11 @@ const SideMenu = ({ visible, onClose, navigation }: Props) => {
       { icon: 'home-outline', label: 'Inicio', screen: 'Main' as keyof RootStackParamList },
     ];
 
-    // Si el usuario tiene rol de "Acudiente" (ID 4), mostrar agenda
+    // Si el usuario tiene rol de "Acudiente" (ID 4) Y tiene estudiantes asignados, mostrar agenda
     const isParent = userRoles.some(role => role.rolId === 4);
-    if (isParent) {
+    if (isParent && studentRelations.length > 0) {
       baseOptions.push(
-        { icon: 'calendar-outline', label: 'Mi Agenda', screen: 'Agenda' as keyof RootStackParamList }
+        { icon: 'calendar-outline', label: 'Mi Agenda', screen: 'MisHijos' as keyof RootStackParamList }
       );
     }
 

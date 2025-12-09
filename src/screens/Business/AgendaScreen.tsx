@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   StatusBar,
@@ -13,27 +12,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  getStudentCurrentAgenda,
-  confirmAgendaReading 
+import {
+  getStudentAgendaContext,
+  confirmAgenda
 } from '../../api/services/agendaService';
+import {
+} from '../../api/types';
+import { AgendaContext, StudentAnswer, AgendaQuestion } from '../../api/types/Agenda';
 
 const AgendaScreen = () => {
   const navigation = useNavigation();
-  const { user, person } = useAuth();
-  
-  // Estados principales
-  const [loading, setLoading] = useState(true);
-  const [agenda, setAgenda] = useState<any>(null);
-  const [agendaDay, setAgendaDay] = useState<any>(null);
-  const [group, setGroup] = useState<any>(null);
-  const [observations, setObservations] = useState<any[]>([]);
-  const [parentComment, setParentComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const route = useRoute();
+  const { person } = useAuth();
 
-  // Estados para animaciones
+  const { studentId, studentName } = (route.params as any) || {};
+
+  const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState(false);
+  const [agendaContext, setAgendaContext] = useState<AgendaContext | null>(null);
+  const [expandedObservations, setExpandedObservations] = useState<Record<number, boolean>>({});
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
 
@@ -42,8 +41,7 @@ const AgendaScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (!loading) {
-      // Animaciones de entrada
+    if (!loading && agendaContext) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -57,48 +55,71 @@ const AgendaScreen = () => {
         }),
       ]).start();
     }
-  }, [loading]);
+  }, [loading, agendaContext]);
 
   const loadAgendaData = async () => {
     try {
-      // Aquí deberías obtener el studentId basado en el usuario actual
-      // Por ahora uso un ID de ejemplo - ajústalo según tu lógica
-      const studentId = 1; // Esto debería venir de tu contexto o API
-      
-      const data = await getStudentCurrentAgenda(studentId);
-      
-      setAgenda(data.agenda);
-      setAgendaDay(data.agendaDay);
-      setGroup(data.group);
-      setObservations(data.observations);
+      if (!studentId || !person?.id) {
+        throw new Error('Informacion del estudiante no disponible');
+      }
+
+      const context = await getStudentAgendaContext(studentId, person.id);
+      setAgendaContext(context);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo cargar la agenda');
       console.error('Error loading agenda:', error);
+      navigation.goBack();
     } finally {
       setLoading(false);
     }
   };
 
-  const handleConfirmReading = async () => {
-    if (!agendaDay) return;
+  const handleConfirmAgenda = async () => {
+    if (!agendaContext) return;
+
+    if (agendaContext.isCompleted) {
+      Alert.alert('Informacion', 'Esta agenda ya fue confirmada anteriormente');
+      return;
+    }
 
     Alert.alert(
-      'Confirmar Lectura',
-      '¿Estás seguro de que deseas confirmar la lectura de esta agenda?',
+      'Confirmar Agenda',
+      'Has leido toda la informacion de la agenda? Una vez confirmada no podras modificarla.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Confirmar', 
+        {
+          text: 'Confirmar',
+          style: 'default',
           onPress: async () => {
             try {
-              setSubmitting(true);
-              await confirmAgendaReading(agendaDay.id, parentComment);
-              Alert.alert('Éxito', 'Lectura confirmada correctamente');
-              navigation.goBack();
+              setConfirming(true);
+
+              await confirmAgenda(
+                agendaContext.agendaDayStudentRecord.agendaDayStudentId,
+                agendaContext.agendaDay.agendaDayId,
+                agendaContext.student.studentId
+              );
+
+              Alert.alert(
+                'Exitoso',
+                'Agenda confirmada correctamente',
+                [
+                  {
+                    text: 'Entendido',
+                    onPress: () => navigation.goBack()
+                  }
+                ]
+              );
+
+              setAgendaContext({
+                ...agendaContext,
+                isCompleted: true
+              });
+
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Error al confirmar la lectura');
+              Alert.alert('Error', error.message || 'Error al confirmar la agenda');
             } finally {
-              setSubmitting(false);
+              setConfirming(false);
             }
           }
         }
@@ -106,35 +127,77 @@ const AgendaScreen = () => {
     );
   };
 
-  const getAnswerColor = (answer: string) => {
-    switch (answer.toLowerCase()) {
-      case 'sí':
-      case 'muy bien':
-      case 'excelente':
-        return '#10B981'; // Verde
-      case 'no':
-      case 'mal':
-      case 'muy poco':
-        return '#EF4444'; // Rojo
-      case 'regular':
-      case 'bien':
-        return '#F59E0B'; // Amarillo
-      default:
-        return '#6B7280'; // Gris
+  const getAnswerValue = (answer: StudentAnswer, question: AgendaQuestion): string => {
+    // Bool
+    if (answer.valueBool !== null) {
+      return answer.valueBool ? 'si' : 'No';
     }
+    
+    // Text
+    if (answer.valueText !== null) {
+      return answer.valueText;
+    }
+    
+    // Date
+    if (answer.valueDate !== null) {
+      const date = new Date(answer.valueDate);
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    
+    // Number
+    if (answer.valueNumber !== null) {
+      return answer.valueNumber.toString();
+    }
+    
+    // Options (Single or Multi)
+    if (answer.optionIds && answer.optionIds.length > 0) {
+      const selectedOptions = question.options
+        .filter(opt => answer.optionIds.includes(opt.id))
+        .map(opt => opt.text);
+      return selectedOptions.join(', ');
+    }
+    
+    return 'Sin respuesta';
   };
 
-  const getAnswerEmoji = (answer: string) => {
-    switch (answer.toLowerCase()) {
-      case 'sí': return '✅';
-      case 'no': return '❌';
-      case 'muy bien': return '😊';
-      case 'bien': return '🙂';
-      case 'regular': return '😐';
-      case 'mal': return '😞';
-      case 'muy poco': return '😔';
-      default: return '📝';
+  const getAnswerColor = (answer: StudentAnswer): string => {
+    if (answer.valueBool !== null) {
+      return answer.valueBool ? '#10B981' : '#EF4444';
     }
+    if (answer.valueText !== null && answer.valueText.length > 0) {
+      return '#6366F1';
+    }
+    return '#6B7280';
+  };
+
+  const getAnswerEmoji = (answer: StudentAnswer): string => {
+    if (answer.valueBool !== null) {
+      return answer.valueBool ? '' : '';
+    }
+    if (answer.valueText !== null && answer.valueText.length > 0) {
+      return '';
+    }
+    if (answer.valueDate !== null) {
+      return '';
+    }
+    if (answer.valueNumber !== null) {
+      return '';
+    }
+    if (answer.optionIds && answer.optionIds.length > 0) {
+      return '';
+    }
+    return '';
+  };
+
+  const toggleObservation = (observationId: number) => {
+    setExpandedObservations(prev => ({
+      ...prev,
+      [observationId]: !prev[observationId]
+    }));
   };
 
   const formatDate = (dateString: string) => {
@@ -162,7 +225,7 @@ const AgendaScreen = () => {
     );
   }
 
-  if (!agenda || !agendaDay || !group) {
+  if (!agendaContext) {
     return (
       <SafeAreaView style={styles.container}>
         <LinearGradient
@@ -170,22 +233,22 @@ const AgendaScreen = () => {
           style={styles.header}
         >
           <View style={styles.headerContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.backIcon}>←</Text>
+              <Text style={styles.backIcon}></Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Agenda</Text>
             <View style={styles.placeholder} />
           </View>
         </LinearGradient>
-        
+
         <View style={styles.noDataContainer}>
-          <Text style={styles.noDataEmoji}>📅</Text>
+          <Text style={styles.noDataEmoji}></Text>
           <Text style={styles.noDataTitle}>Sin agenda disponible</Text>
           <Text style={styles.noDataText}>
-            No hay agenda activa para hoy.
+            No hay agenda activa para este estudiante.
           </Text>
         </View>
       </SafeAreaView>
@@ -195,38 +258,35 @@ const AgendaScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#4C1D95" />
-      
-      {/* Header con gradiente */}
+
+      {/* Header */}
       <LinearGradient
         colors={['#1E1E50', '#5B21B6', '#6366F1']}
         style={styles.header}
       >
         <SafeAreaView>
           <View style={styles.headerContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.backIcon}>←</Text>
+              <Text style={styles.backIcon}>salir</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>#{group.name}</Text>
-            <TouchableOpacity 
-              style={styles.menuButton}
-              onPress={() => navigation.navigate('Main' as never)}
-            >
-              <Text style={styles.menuIcon}>☰</Text>
-            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {studentName || agendaContext.student.nameStudent}
+            </Text>
+            <View style={styles.placeholder} />
           </View>
-          
+
           <View style={styles.dateContainer}>
             <Text style={styles.dateText}>
-              {formatDate(agendaDay.openAt)}
+              {formatDate(agendaContext.agendaDay.date)}
             </Text>
           </View>
         </SafeAreaView>
       </LinearGradient>
 
-      <Animated.View 
+      <Animated.View
         style={[
           styles.content,
           {
@@ -235,110 +295,132 @@ const AgendaScreen = () => {
           }
         ]}
       >
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
         >
-          {/* Información de la agenda */}
+          {/* Estado de confirmaciones */}
+          {agendaContext.isCompleted && (
+            <View style={styles.completedBanner}>
+              <Text style={styles.completedEmoji}></Text>
+              <View style={styles.completedTextContainer}>
+                <Text style={styles.completedTitle}>Agenda Confirmada</Text>
+                <Text style={styles.completedSubtitle}>
+                  Has confirmado que leiste esta agenda
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* InformaciÃ³n de la agenda */}
           <View style={styles.agendaInfoCard}>
-            <Text style={styles.agendaTitle}>{agenda.name}</Text>
-            {agenda.description && (
-              <Text style={styles.agendaDescription}>{agenda.description}</Text>
-            )}
-          </View>
-
-          {/* Observaciones */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📊 Observaciones del día</Text>
-            
-            {observations.map((obs, index) => (
-              <Animated.View
-                key={obs.id}
-                style={[
-                  styles.observationCard,
-                  {
-                    transform: [{
-                      scale: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.9, 1]
-                      })
-                    }]
-                  }
-                ]}
-              >
-                <View style={styles.observationHeader}>
-                  <Text style={styles.observationEmoji}>
-                    {getAnswerEmoji(obs.answer)}
-                  </Text>
-                  <Text style={styles.observationQuestion}>{obs.question}</Text>
-                </View>
-                
-                <View style={[
-                  styles.observationAnswer,
-                  { borderLeftColor: getAnswerColor(obs.answer) }
-                ]}>
-                  <Text style={[
-                    styles.observationAnswerText,
-                    { color: getAnswerColor(obs.answer) }
-                  ]}>
-                    {obs.answer}
-                  </Text>
-                </View>
-              </Animated.View>
-            ))}
-          </View>
-
-          {/* Tareas pendientes */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📚 Tareas para realizar</Text>
-            <View style={styles.taskCard}>
-              <Text style={styles.taskIcon}>📝</Text>
-              <Text style={styles.taskText}>
-                Traer cuaderno de matemáticas para la próxima clase
+            <Text style={styles.agendaTitle}>{agendaContext.agendaDay.agendaName}</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoIcon}></Text>
+              <Text style={styles.infoText}>
+                {agendaContext.agendaDay.groupName}
               </Text>
             </View>
           </View>
 
-          {/* Comentario del padre */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💬 Comentario del padre (opcional)</Text>
-            <View style={styles.commentContainer}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Escribe un comentario para el profesor..."
-                placeholderTextColor="#9CA3AF"
-                value={parentComment}
-                onChangeText={setParentComment}
-                multiline
-                textAlignVertical="top"
-                maxLength={300}
-              />
-              <Text style={styles.characterCount}>
-                {parentComment.length}/300
+          {/* Respuestas de la agenda */}
+          {agendaContext.studentAnswers && agendaContext.studentAnswers.answers.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Infomacion del Dia</Text>
+
+              {agendaContext.studentAnswers.answers.map((answer) => {
+                const question = agendaContext.questions.find(
+                  q => q.id === answer.questionId
+                );
+
+                if (!question) return null;
+
+                return (
+                  <Animated.View
+                    key={answer.id}
+                    style={[
+                      styles.answerCard,
+                      {
+                        transform: [{
+                          scale: fadeAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.9, 1]
+                          })
+                        }]
+                      }
+                    ]}
+                  >
+                    <View style={styles.answerHeader}>
+                      <Text style={styles.answerEmoji}>
+                        {getAnswerEmoji(answer)}
+                      </Text>
+                      <Text style={styles.questionText}>
+                        {question.text}
+                      </Text>
+                    </View>
+
+                    <View style={[
+                      styles.answerValue,
+                      { borderLeftColor: getAnswerColor(answer) }
+                    ]}>
+                      <Text style={[
+                        styles.answerValueText,
+                        { color: getAnswerColor(answer) }
+                      ]}>
+                        {getAnswerValue(answer, question)}
+                      </Text>
+                    </View>
+                  </Animated.View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Si no hay respuestas */}
+          {(!agendaContext.studentAnswers || agendaContext.studentAnswers.answers.length === 0) && (
+            <View style={styles.noAnswersContainer}>
+              <Text style={styles.noAnswersEmoji}></Text>
+              <Text style={styles.noAnswersTitle}>Sin respuestas registradas</Text>
+              <Text style={styles.noAnswersText}>
+                El profesorno ha asignado una agenda
               </Text>
             </View>
-          </View>
+          )}
 
-          {/* Botón de confirmación */}
-          <TouchableOpacity 
-            style={styles.confirmButton}
-            onPress={handleConfirmReading}
-            disabled={submitting}
-          >
-            <LinearGradient
-              colors={['#10B981', '#059669']}
-              style={styles.confirmButtonGradient}
+          {/* boton de confirmaciÃ³n */}
+          {!agendaContext.isCompleted && (
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={handleConfirmAgenda}
+              disabled={confirming}
             >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Text style={styles.confirmIcon}>✓</Text>
-                  <Text style={styles.confirmButtonText}>Confirmar lectura</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                style={styles.confirmButtonGradient}
+              >
+                {confirming ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.confirmIcon}></Text>
+                    <Text style={styles.confirmButtonText}>
+                      Confirmarlectura de la agenda
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {agendaContext.isCompleted && (
+            <View style={styles.infoBox}>
+              <Text style={styles.infoBoxEmoji}></Text>
+              <Text style={styles.infoBoxText}>
+                Ya has confirmado esta agenda. La informaciÃ³n se mantiene guardada 
+                para tu consulta.
+              </Text>
+            </View>
+          )}
 
           <View style={styles.bottomPadding} />
         </ScrollView>
@@ -391,16 +473,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  menuButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  menuIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
   placeholder: {
     width: 36,
   },
@@ -423,6 +495,34 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  completedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#10B981',
+  },
+  completedEmoji: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  completedTextContainer: {
+    flex: 1,
+  },
+  completedTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#065F46',
+    marginBottom: 2,
+  },
+  completedSubtitle: {
+    fontSize: 12,
+    color: '#059669',
+  },
   agendaInfoCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
@@ -439,12 +539,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  agendaDescription: {
+  infoIcon: {
+    fontSize: 18,
+    marginRight: 12,
+    width: 24,
+  },
+  infoText: {
     fontSize: 14,
     color: '#6B7280',
-    lineHeight: 20,
+    flex: 1,
   },
   section: {
     marginHorizontal: 20,
@@ -456,7 +566,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 16,
   },
-  observationCard: {
+  answerCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
@@ -467,82 +577,74 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  observationHeader: {
+  answerHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
-  observationEmoji: {
+  answerEmoji: {
     fontSize: 20,
     marginRight: 12,
   },
-  observationQuestion: {
+  questionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
-    flex: 1,
-  },
-  observationAnswer: {
-    backgroundColor: '#F9FAFB',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-  },
-  observationAnswerText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  taskCard: {
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  taskIcon: {
-    fontSize: 24,
-    marginRight: 16,
-  },
-  taskText: {
-    fontSize: 14,
     color: '#374151',
     flex: 1,
     lineHeight: 20,
   },
-  commentContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+  answerValue: {
+    backgroundColor: '#F9FAFB',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderLeftWidth: 4,
   },
-  commentInput: {
-    padding: 16,
+  answerValueText: {
     fontSize: 14,
-    color: '#374151',
-    minHeight: 80,
-    borderRadius: 12,
+    fontWeight: '600',
+    lineHeight: 20,
   },
-  characterCount: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    textAlign: 'right',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+  noAnswersContainer: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginTop: 24,
+    padding: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  noAnswersEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  noAnswersTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noAnswersText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   confirmButton: {
     marginHorizontal: 20,
     marginTop: 32,
     borderRadius: 12,
     overflow: 'hidden',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   confirmButtonGradient: {
     flexDirection: 'row',
@@ -560,6 +662,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#EFF6FF',
+    marginHorizontal: 20,
+    marginTop: 32,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  infoBoxEmoji: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  infoBoxText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    flex: 1,
+    lineHeight: 20,
   },
   noDataContainer: {
     flex: 1,
@@ -590,3 +712,5 @@ const styles = StyleSheet.create({
 });
 
 export default AgendaScreen;
+
+
