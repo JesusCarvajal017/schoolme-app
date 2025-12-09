@@ -47,6 +47,7 @@ export interface AgendaDayToday {
 }
 
 export interface AgendaDayStudentRecord {
+  date: string | null;
   agendaDayStudentId: number;
   studentId: number;
   fullName: string;
@@ -56,19 +57,23 @@ export interface AgendaDayStudentRecord {
 }
 
 export interface AgendaDayStudent {
+  agendaId: number;
   agendaDayId: number;
-  studentId: number;
-  agendaDayStudentStatus: number;
-  completedAt: string;
-  agendaDay: any | null;
-  student: any | null;
-  studentAnswers: any[];
-  teacherObservation: any | null;
+  agendaDayStudentId: number;
+  agendaName: string;
+  groupName: string;
+  date: string;
   id: number;
   status: number;
-  createdAt: string;
-  updatedAt: string;
-  deleteAt: string | null;
+  agendaDayStudentStatus?: number;
+  completedAt?: string;
+  agendaDay?: any | null;
+  student?: any | null;
+  studentAnswers?: any[];
+  teacherObservation?: any | null;
+  createdAt?: string;
+  updatedAt?: string;
+  deleteAt?: string | null;
 }
 
 // ==================== PREGUNTAS Y OPCIONES ====================
@@ -120,7 +125,9 @@ export interface AgendaContext {
   studentAnswers: StudentAnswersResponse | null;
   teacherObservations: TeacherObservation[];
   isCompleted: boolean;
+  lastUpdateDate: string | null; 
 }
+
 
 // ==================== OBSERVACIONES DE PROFESORES ====================
 
