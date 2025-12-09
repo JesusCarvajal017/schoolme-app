@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "ModelSecurityMobile",
-    "slug": "ModelSecurityMobile",
+    "name": "SchoolMe",
+    "slug": "SchoolMe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
