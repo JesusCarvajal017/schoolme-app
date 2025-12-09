@@ -1,5 +1,4 @@
 // const uri = "192.168.20.29"; 
-
 // export const environment = {
 //   uri,
 //   urlApi: `http://${uri}:7000/api`
